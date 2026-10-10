@@ -2,46 +2,136 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>세포 키우기 게임 (AI 추가)</title>
+    <title>우주 행성 키우기</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #f2fbff;
-            font-family: sans-serif;
+            background-color: #0b0c10;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
         }
         canvas {
             display: block;
             width: 100vw;
             height: 100vh;
         }
+        
         #scoreBoard {
             position: absolute;
             top: 20px;
             left: 20px;
-            font-size: 24px;
+            font-size: 20px;
             font-weight: bold;
-            color: #333;
-            background: rgba(255, 255, 255, 0.8);
-            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 15px 20px;
             border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border: 2px solid #45a29e;
             pointer-events: none;
             z-index: 10;
+            display: none;
         }
+
+        .screen {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: rgba(11, 12, 16, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+        
+        h1 { font-size: 48px; color: #66fcf1; margin-bottom: 10px; text-shadow: 0 0 10px #66fcf1; }
+        p { font-size: 24px; margin-bottom: 30px; }
+        
+        button {
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #0b0c10;
+            background-color: #66fcf1;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s;
+            margin: 10px;
+        }
+        button:hover {
+            background-color: #45a29e;
+            color: white;
+            box-shadow: 0 0 15px #66fcf1;
+        }
+
+        /* 색상 선택 영역 (이미지 대신 동그란 색상 표시로 변경) */
+        #skinContainer {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .color-card {
+            width: 120px;
+            height: 150px;
+            background: rgba(255,255,255,0.1);
+            border: 3px solid transparent;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .color-card:hover { background: rgba(255,255,255,0.2); }
+        .color-card.selected { border-color: #66fcf1; background: rgba(102, 252, 241, 0.2); box-shadow: 0 0 15px #66fcf1;}
+        .color-circle {
+            width: 60px; height: 60px; border-radius: 50%; margin-bottom: 15px;
+            box-shadow: 0 0 10px rgba(255,255,255,0.2);
+        }
+        
     </style>
 </head>
 <body>
 
-    <div id="scoreBoard">크기: 20</div>
+    <div id="scoreBoard">
+        현재 크기: <span id="currentScore">20</span><br>
+        최고 기록: <span id="highScoreDisplay">20</span>
+    </div>
+
+    <div id="startScreen" class="screen">
+        <h1>우주 행성 키우기</h1>
+        <p>내 행성의 색상을 선택하세요</p>
+        <div id="skinContainer"></div>
+        <button id="startBtn">게임 시작</button>
+    </div>
+
+    <div id="gameOverScreen" class="screen" style="display: none;">
+        <h1>행성 파괴됨!</h1>
+        <p>내 점수(크기): <span id="finalScore">0</span></p>
+        <p style="color: #f39c12; font-weight: bold;">최고 기록: <span id="bestScore">0</span></p>
+        <div>
+            <button id="restartBtn">다시 플레이</button>
+            <button id="homeBtn">색상 다시 고르기</button>
+        </div>
+    </div>
+
     <canvas id="gameCanvas"></canvas>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        
         const scoreBoard = document.getElementById('scoreBoard');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const skinContainer = document.getElementById('skinContainer');
+        const currentScoreEl = document.getElementById('currentScore');
+        const highScoreDisplayEl = document.getElementById('highScoreDisplay');
+        const finalScoreEl = document.getElementById('finalScore');
+        const bestScoreEl = document.getElementById('bestScore');
 
-        // 캔버스 크기 초기화 및 자동 조절 보장
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -49,14 +139,42 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        const WORLD_SIZE = 3000;
-        const FOOD_COUNT = 600; 
-        const AI_COUNT = 15; // AI 적의 마리 수
+        let gameState = 'START';
+        let highScore = localStorage.getItem('planetHighScore') || 20;
+        highScoreDisplayEl.innerText = Math.floor(highScore);
 
-        // 플레이어
-        let player = {
-            x: WORLD_SIZE / 2, y: WORLD_SIZE / 2, r: 20, color: '#ff4757'
-        };
+        // 사진(이미지) 대신 사용할 행성 색상 데이터
+        const planetColors = [
+            { name: '지구', color: '#3498db' }, // 파란색
+            { name: '화성', color: '#e74c3c' }, // 빨간색
+            { name: '목성', color: '#e67e22' }, // 주황색
+            { name: '태양', color: '#f1c40f' }, // 노란색
+            { name: '달', color: '#95a5a6' }  // 회색
+        ];
+
+        let selectedColorInfo = planetColors[0];
+
+        // 색상 선택 UI 생성
+        planetColors.forEach((planet, index) => {
+            const card = document.createElement('div');
+            card.className = `color-card ${index === 0 ? 'selected' : ''}`;
+            card.innerHTML = `<div class="color-circle" style="background-color: ${planet.color};"></div><span>${planet.name}</span>`;
+            
+            card.onclick = () => {
+                document.querySelectorAll('.color-card').forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                selectedColorInfo = planet;
+            };
+            skinContainer.appendChild(card);
+        });
+
+        const WORLD_SIZE = 4000;
+        const FOOD_COUNT = 800; 
+        const AI_COUNT = 20; 
+
+        let player = {};
+        let foods = [];
+        let ais = [];
 
         let mouseX = canvas.width / 2;
         let mouseY = canvas.height / 2;
@@ -66,31 +184,73 @@
             mouseY = e.clientY;
         });
 
-        // 먹이 생성 함수
         function createFood() {
             return {
                 x: Math.random() * WORLD_SIZE,
                 y: Math.random() * WORLD_SIZE,
-                r: 4 + Math.random() * 3,
-                color: `hsl(${Math.random() * 360}, 80%, 60%)`
+                r: 3 + Math.random() * 4,
+                color: `hsl(${Math.random() * 360}, 100%, 80%)`
             };
         }
 
-        // AI 생성 함수
+        // AI 생성 시 무작위 색상 부여
         function createAI() {
+            const randomColor = planetColors[Math.floor(Math.random() * planetColors.length)].color;
             return {
                 x: Math.random() * WORLD_SIZE,
                 y: Math.random() * WORLD_SIZE,
-                r: 15 + Math.random() * 20, // 15~35 사이의 랜덤 초기 크기
-                color: `hsl(${Math.random() * 360}, 60%, 40%)`
+                r: 15 + Math.random() * 40, 
+                color: randomColor
             };
         }
 
-        const foods = Array.from({ length: FOOD_COUNT }, createFood);
-        const ais = Array.from({ length: AI_COUNT }, createAI);
+        function initGame() {
+            // 플레이어에게 선택한 색상 적용
+            player = {
+                x: WORLD_SIZE / 2, 
+                y: WORLD_SIZE / 2, 
+                r: 20, 
+                color: selectedColorInfo.color 
+            };
+            
+            foods = Array.from({ length: FOOD_COUNT }, createFood);
+            ais = Array.from({ length: AI_COUNT }, createAI);
+            
+            currentScoreEl.innerText = 20;
+            highScoreDisplayEl.innerText = Math.floor(highScore);
+
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            scoreBoard.style.display = 'block';
+            
+            gameState = 'PLAYING';
+        }
+
+        document.getElementById('startBtn').onclick = initGame;
+        document.getElementById('restartBtn').onclick = initGame;
+        document.getElementById('homeBtn').onclick = () => {
+            gameOverScreen.style.display = 'none';
+            startScreen.style.display = 'flex';
+            gameState = 'START';
+        };
+
+        function triggerGameOver() {
+            gameState = 'GAMEOVER';
+            scoreBoard.style.display = 'none';
+            gameOverScreen.style.display = 'flex';
+            
+            finalScoreEl.innerText = Math.floor(player.r);
+            
+            if (player.r > highScore) {
+                highScore = player.r;
+                localStorage.setItem('planetHighScore', highScore);
+            }
+            bestScoreEl.innerText = Math.floor(highScore);
+        }
 
         function update() {
-            // 1. 플레이어 이동
+            if (gameState !== 'PLAYING') return;
+
             const dx = mouseX - (canvas.width / 2);
             const dy = mouseY - (canvas.height / 2);
             const distanceToMouse = Math.hypot(dx, dy);
@@ -102,36 +262,31 @@
                 player.y += Math.sin(angle) * currentSpeed;
             }
 
-            // 플레이어 맵 밖으로 안 나가게 제한
             player.x = Math.max(player.r, Math.min(WORLD_SIZE - player.r, player.x));
             player.y = Math.max(player.r, Math.min(WORLD_SIZE - player.r, player.y));
 
-            // 2. 플레이어의 먹이 섭취
             for (let i = foods.length - 1; i >= 0; i--) {
                 const f = foods[i];
                 if (Math.hypot(player.x - f.x, player.y - f.y) < player.r) {
                     foods.splice(i, 1);
                     player.r = Math.sqrt((Math.PI * player.r ** 2 + Math.PI * f.r ** 2) / Math.PI);
-                    scoreBoard.innerText = `크기: ${Math.floor(player.r)}`;
+                    currentScoreEl.innerText = Math.floor(player.r);
                     foods.push(createFood());
                 }
             }
 
-            // 3. AI 로직 (가장 가까운 먹이 찾아서 이동 & 먹기)
             ais.forEach((ai, aiIndex) => {
                 let targetFood = null;
                 let minFoodDist = Infinity;
 
-                // AI 시야에 있는 가장 가까운 먹이 탐색
                 foods.forEach(f => {
                     let d = Math.hypot(ai.x - f.x, ai.y - f.y);
-                    if (d < minFoodDist) {
+                    if (d < minFoodDist && d < 600) { 
                         minFoodDist = d;
                         targetFood = f;
                     }
                 });
 
-                // 먹이를 향해 이동
                 if (targetFood) {
                     let angle = Math.atan2(targetFood.y - ai.y, targetFood.x - ai.x);
                     let aiSpeed = Math.max(1.5, 100 / ai.r);
@@ -139,11 +294,9 @@
                     ai.y += Math.sin(angle) * aiSpeed;
                 }
 
-                // AI 맵 이탈 방지
                 ai.x = Math.max(ai.r, Math.min(WORLD_SIZE - ai.r, ai.x));
                 ai.y = Math.max(ai.r, Math.min(WORLD_SIZE - ai.r, ai.y));
 
-                // AI가 먹이 섭취
                 for (let i = foods.length - 1; i >= 0; i--) {
                     const f = foods[i];
                     if (Math.hypot(ai.x - f.x, ai.y - f.y) < ai.r) {
@@ -153,48 +306,59 @@
                     }
                 }
 
-                // 4. 플레이어와 AI 간의 포식(잡아먹기) 판정
                 const distToPlayer = Math.hypot(player.x - ai.x, player.y - ai.y);
                 
-                // 크기가 10% 이상 더 커야 잡아먹을 수 있음
                 if (distToPlayer < player.r && player.r > ai.r * 1.1) {
-                    // 플레이어가 AI를 먹음
                     player.r = Math.sqrt((Math.PI * player.r ** 2 + Math.PI * ai.r ** 2) / Math.PI);
-                    scoreBoard.innerText = `크기: ${Math.floor(player.r)}`;
+                    currentScoreEl.innerText = Math.floor(player.r);
                     ais.splice(aiIndex, 1);
-                    ais.push(createAI()); // 죽은 AI는 새로운 위치에서 부활
+                    ais.push(createAI());
                 } else if (distToPlayer < ai.r && ai.r > player.r * 1.1) {
-                    // AI가 플레이어를 먹음 (게임 오버 및 리셋)
-                    alert("AI에게 잡아먹혔습니다! 게임이 다시 시작됩니다.");
-                    player.r = 20;
-                    player.x = WORLD_SIZE / 2;
-                    player.y = WORLD_SIZE / 2;
-                    scoreBoard.innerText = `크기: 20`;
+                    triggerGameOver();
                 }
             });
         }
 
+        // 이미지 없이 색상으로만 행성을 그리는 함수로 변경
+        function drawPlanet(obj, label) {
+            ctx.beginPath();
+            ctx.arc(obj.x, obj.y, obj.r, 0, Math.PI * 2);
+            ctx.fillStyle = obj.color; // 객체의 색상 채우기
+            ctx.fill();
+            
+            // 행성 테두리 (빛나는 효과)
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.stroke();
+
+            // 라벨(이름표)이 전달되면 출력
+            if (label) {
+                ctx.fillStyle = 'white';
+                ctx.font = '16px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(label, obj.x, obj.y - obj.r - 10);
+            }
+        }
+
         function draw() {
+            if (gameState === 'START') return; 
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.save();
             
-            // 카메라 중심을 플레이어로 이동
             ctx.translate(canvas.width / 2 - player.x, canvas.height / 2 - player.y);
 
-            // 배경 격자(Grid) 그리기
-            ctx.strokeStyle = '#e1e1e1';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
             ctx.lineWidth = 1;
-            for (let i = 0; i <= WORLD_SIZE; i += 50) {
+            for (let i = 0; i <= WORLD_SIZE; i += 100) {
                 ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, WORLD_SIZE); ctx.stroke();
                 ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(WORLD_SIZE, i); ctx.stroke();
             }
 
-            // 맵 테두리
-            ctx.strokeStyle = '#bdc3c7';
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
             ctx.lineWidth = 5;
             ctx.strokeRect(0, 0, WORLD_SIZE, WORLD_SIZE);
 
-            // 먹이 그리기
             foods.forEach(f => {
                 ctx.beginPath();
                 ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
@@ -202,25 +366,13 @@
                 ctx.fill();
             });
 
-            // AI 그리기
-            ais.forEach(ai => {
-                ctx.beginPath();
-                ctx.arc(ai.x, ai.y, ai.r, 0, Math.PI * 2);
-                ctx.fillStyle = ai.color;
-                ctx.fill();
-                ctx.lineWidth = 3;
-                ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-                ctx.stroke();
-            });
+            // AI 그리기 (이름표 없이 색상만)
+            ais.forEach(ai => drawPlanet(ai, null));
 
-            // 플레이어 그리기
-            ctx.beginPath();
-            ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
-            ctx.fillStyle = player.color;
-            ctx.fill();
-            ctx.lineWidth = 4;
-            ctx.strokeStyle = '#c0392b';
-            ctx.stroke();
+            // 플레이어 그리기 (이름표 포함)
+            if (gameState === 'PLAYING') {
+                drawPlanet(player, '나');
+            }
 
             ctx.restore();
         }
@@ -231,7 +383,6 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // 게임 루프 시작
         requestAnimationFrame(gameLoop);
     </script>
 </body>
