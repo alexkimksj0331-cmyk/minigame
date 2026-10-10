@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Hatching Legends</title>
+    <style>
+        body {
+            margin: 0; padding: 0;
+            background-color: #1a1a2e; color: white;
+            font-family: 'Black Han Sans', sans-serif, 'Segoe UI';
+            display: flex; flex-direction: column; align-items: center;
+            height: 100vh; overflow: hidden;
+        }
+
+        :root {
+            --base-scale: 1;
+            --aura-color: white;
+        }
+
+        #topBar {
+            width: 100%; padding: 12px 20px;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex; justify-content: space-around; align-items: center;
+            font-size: 20px; font-weight: bold;
+            border-bottom: 3px solid #16213e;
+            box-sizing: border-box;
+            flex-wrap: wrap; gap: 10px;
+            z-index: 50;
+        }
+
+        .gold-icon {
+            background-color: #f1c40f; color: #d35400;
+            padding: 2px 6px; border-radius: 4px;
+            border: 2px solid #e67e22; font-weight: 900; margin-right: 3px;
+        }
+
+        .diamond-icon {
+            background-color: #00cec9; color: #0056b3;
+            padding: 2px 6px; border-radius: 4px;
+            border: 2px solid #0984e3; font-weight: 900; margin-right: 3px;
+        }
+
+        .cps-text { font-size: 16px; color: #2ecc71; }
+
+        #gameArea {
+            flex: 1; display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            width: 100%; position: relative;
+        }
+
+        #eggContainer {
+            width: 150px; height: 150px;
+            display: flex; justify-content: center; align-items: center;
+            margin-bottom: 5px; position: relative;
+        }
+
+        #eggImage {
+            max-width: 100%; max-height: 100%;
+            transition: transform 0.3s ease, filter 0.3s ease; display: none;
+            clip-path: circle(45% at 50% 50%);
+        }
+
+        #eggInfo {
+            font-size: 24px; font-weight: bold; margin-bottom: 2px;
+            text-align: center;
+        }
+
+        #eggIncome {
+            font-size: 14px; color: #f1c40f; margin-bottom: 10px;
+        }
+
+        .btn {
+            padding: 10px 18px; font-size: 16px; font-weight: bold; color: white;
+            border: none; border-radius: 12px; cursor: pointer;
+            text-transform: uppercase; position: relative;
+            transition: transform 0.1s, box-shadow 0.1s, opacity 0.2s; margin: 4px;
+        }
+        .btn:active { transform: translateY(6px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none !important; }
+
+        .btn-work { background: linear-gradient(to bottom, #3498db, #2980b9); box-shadow: 0 6px 0 #154360; }
+        .btn-work:active:not(:disabled) { box-shadow: 0 0px 0 #154360; }
+        .btn-enhance { background: linear-gradient(to bottom, #f39c12, #d35400); box-shadow: 0 6px 0 #78281f; }
+        .btn-enhance:active:not(:disabled) { box-shadow: 0 0px 0 #78281f; }
+        .btn-open-shop { background: linear-gradient(to bottom, #e74c3c, #c0392b); box-shadow: 0 6px 0 #7b241c; }
+        .btn-open-shop:active:not(:disabled) { box-shadow: 0 0px 0 #7b241c; }
+        
+        .btn-sell-mode { background: linear-gradient(to bottom, #9b59b6, #8e44ad); box-shadow: 0 6px 0 #5b2c6f; }
+        .btn-sell-mode:active:not(:disabled) { box-shadow: 0 0px 0 #5b2c6f; }
+        
+        .btn-rank { background: linear-gradient(to bottom, #34495e, #2c3e50); box-shadow: 0 6px 0 #1a252f; }
+        .btn-rank:active:not(:disabled) { box-shadow: 0 0px 0 #1a252f; }
+
+        #inventoryArea {
+            width: 90%; max-width: 550px;
+            background: rgba(0,0,0,0.4); padding: 12px;
+            border-radius: 15px; margin-bottom: 8px;
+            border: 2px solid #34495e;
+            display: flex; flex-direction: column;
+        }
+        .inv-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .inv-title { font-size: 16px; font-weight: bold; color: #bdc3c7;}
+        
+        #btnExecuteSell {
+            display: none; background: #e74c3c; color: white; border: none; 
+            padding: 4px 12px; font-weight: bold; border-radius: 8px; cursor: pointer;
+        }
+        #btnExecuteSell:hover { background: #c0392b; }
+
+        #inventoryGrid {
+            display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;
+            max-height: 150px; overflow-y: auto; padding-right: 4px;
+        }
+        
+        #inventoryGrid::-webkit-scrollbar { width: 6px; }
+        #inventoryGrid::-webkit-scrollbar-track { background: #1a1a2e; border-radius: 4px; }
+        #inventoryGrid::-webkit-scrollbar-thumb { background: #34495e; border-radius: 4px; }
+
+        .inv-slot {
+            aspect-ratio: 1; background: #2c3e50; border-radius: 8px;
+            border: 3px solid #1abc9c; display: flex; justify-content: center; align-items: center;
+            cursor: pointer; position: relative; transition: 0.2s;
+        }
+        .inv-slot:hover { background: #34495e; }
+        .inv-slot.empty { border-color: #34495e; cursor: default; }
+        .inv-slot.equipped { border-color: #f1c40f; box-shadow: 0 0 8px #f1c40f; }
+        .inv-slot.selected-sell { border-color: #e74c3c; box-shadow: inset 0 0 12px rgba(231,76,60,0.8); }
+        .inv-slot.selected-sell::after {
+            content: '판매'; position: absolute; background: rgba(231,76,60,0.9);
+            color: white; font-size: 10px; font-weight: bold; padding: 1px 4px; border-radius: 4px;
+            z-index: 10;
+        }
+
+        .inv-egg-img { 
+            max-width: 80%; max-height: 80%; pointer-events: none; 
+            clip-path: circle(45% at 50% 50%);
+        }
+        .inv-lvl { position: absolute; bottom: 2px; right: 2px; font-size: 11px; font-weight: bold; background: rgba(0,0,0,0.5); padding: 1px 2px; border-radius: 3px;}
+
+        #logText { margin-top: 5px; font-size: 14px; color: #bdc3c7; height: 18px; }
+
+        .overlay-modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85); display: none;
+            flex-direction: column; justify-content: center; align-items: center; z-index: 100;
+        }
+
+        .msg-box {
+            background: #2c3e50; padding: 25px; border-radius: 20px; border: 4px solid #3498db;
+            text-align: center; min-width: 280px; max-width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        #msgTitle { font-size: 24px; margin-bottom: 8px; font-weight: bold; }
+        #msgDesc { font-size: 15px; margin-bottom: 15px; color: #ecf0f1; line-height: 1.4; }
+        
+        .btn-ok { 
+            background: #3498db; padding: 8px 25px; font-size: 16px; color: white; margin: 0 4px;
+            border: none; border-radius: 8px; cursor: pointer; font-weight: bold;
+        }
+        .btn-ok:hover { filter: brightness(1.1); }
+        .btn-cancel { background: #95a5a6; }
+
+        .shop-box {
+            background: #fff8e7; padding: 20px; border-radius: 22px; border: 6px solid #e74c3c;
+            text-align: center; width: 90%; max-width: 500px; position: relative;
+        }
+        .close-btn {
+            position: absolute; top: -18px; right: -18px; width: 45px; height: 45px;
+            background: #e74c3c; color: white; font-size: 24px; font-weight: bold;
+            border: 3px solid #fff; border-radius: 50%; cursor: pointer; box-shadow: 0 4px 0 #922b21;
+        }
+        .close-btn:active { transform: translateY(4px); box-shadow: 0 0px 0 #922b21; }
+        .shop-title {
+            font-size: 26px; color: #fff; background: #e74c3c; padding: 8px 18px;
+            border-radius: 12px; margin-top: -38px; display: inline-block;
+            border: 3px solid #fff; text-shadow: 2px 2px 0 #c0392b;
+        }
+        .rates { font-size: 12px; margin: 6px 0 3px 0; background: rgba(0,0,0,0.05); padding: 5px; border-radius: 6px; color: #333; font-weight: bold; }
+        
+        .rates-vip { background: rgba(142, 68, 173, 0.15) !important; color: #6c3483 !important; border: 1px dashed #8e44ad; }
+
+        .shop-buttons { display: flex; gap: 6px; justify-content: center; margin-bottom: 6px; }
+        .btn-buy { flex: 1; background: linear-gradient(to bottom, #2ecc71, #27ae60); box-shadow: 0 5px 0 #145a32; font-size: 13px; border: none; border-radius: 8px; color: white; cursor: pointer; padding: 7px 3px; font-weight: bold;}
+        .btn-buy:active { box-shadow: 0 0px 0 #145a32; transform: translateY(5px); }
+
+        .btn-vip { background: linear-gradient(to bottom, #9b59b6, #8e44ad); box-shadow: 0 5px 0 #512e5f; }
+        .btn-vip:active { box-shadow: 0 0px 0 #512e5f; }
+
+        .btn-item { background: linear-gradient(to bottom, #f39c12, #d35400); box-shadow: 0 5px 0 #78281f; }
+        .btn-item:active { box-shadow: 0 0px 0 #78281f; }
+        
+        .gacha-box { display: flex; flex-direction: column; align-items: center; }
+        #gachaBoxIcon { font-size: 80px; margin-bottom: 15px; filter: drop-shadow(0 0 10px rgba(255,255,255,0.5)); }
+        #gachaResultImg { max-width: 130px; max-height: 130px; display: none; margin-bottom: 15px; clip-path: circle(45% at 50% 50%); }
+        #gachaText { font-size: 20px; font-weight: bold; margin-bottom: 15px; text-shadow: 2px 2px 4px black; }
+
+        .checkbox-container {
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 15px; color: #ecf0f1; cursor: pointer; font-size: 13px;
+        }
+        .checkbox-container input { width: 16px; height: 16px; margin-right: 6px; cursor: pointer; }
+
+        @keyframes heartbeat-glow {
+            0% { transform: scale(var(--base-scale)); filter: brightness(1) drop-shadow(0 0 8px var(--aura-color)); }
+            25% { transform: scale(calc(var(--base-scale) * 1.1)); filter: brightness(1.4) drop-shadow(0 0 20px var(--aura-color)); }
+            50% { transform: scale(var(--base-scale)); filter: brightness(1) drop-shadow(0 0 8px var(--aura-color)); }
+            75% { transform: scale(calc(var(--base-scale) * 1.1)); filter: brightness(1.4) drop-shadow(0 0 20px var(--aura-color)); }
+            100% { transform: scale(var(--base-scale)); filter: brightness(1) drop-shadow(0 0 8px var(--aura-color)); }
+        }
+        @keyframes successGlow {
+            0% { filter: brightness(1) drop-shadow(0 0 8px white); transform: scale(var(--base-scale)); }
+            50% { filter: brightness(2) drop-shadow(0 0 35px yellow); transform: scale(calc(var(--base-scale) * 1.2)); }
+            100% { filter: brightness(1) drop-shadow(0 0 8px white); transform: scale(var(--base-scale)); }
+        }
+        @keyframes breakEgg {
+            0% { transform: scale(var(--base-scale)); filter: grayscale(0%); opacity: 1; }
+            40% { transform: scale(calc(var(--base-scale) * 1.1)) rotate(15deg); filter: grayscale(50%) sepia(1) hue-rotate(-50deg) saturate(5); opacity: 0.9; }
+            50% { transform: scale(calc(var(--base-scale) * 1.2)) rotate(-15deg); filter: grayscale(80%) sepia(1) hue-rotate(-50deg) saturate(5); opacity: 0.7; }
+            100% { transform: scale(0); filter: grayscale(100%); opacity: 0; }
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-4px) rotate(-4deg); }
+            50% { transform: translateX(4px) rotate(4deg); }
+            75% { transform: translateX(-4px) rotate(-4deg); }
+        }
+        @keyframes popOut {
+            0% { transform: scale(0) translateY(40px); opacity: 0; }
+            60% { transform: scale(1.2) translateY(-15px); opacity: 1; filter: drop-shadow(0 0 15px white); }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        .anim-heartbeat { animation: heartbeat-glow 1.25s ease-in-out infinite; }
+        .anim-success { animation: successGlow 1s forwards; }
+        .anim-break { animation: breakEgg 0.8s forwards; }
+        .anim-shake { animation: shake 0.3s infinite; }
+        .anim-pop { animation: popOut 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    </style>
+</head>
+<body>
+
+    <div id="topBar">
+        <div><span class="gold-icon">G</span> <span id="moneyDisplay">10000</span></div>
+        <div><span class="diamond-icon">💎</span> <span id="diamondDisplay">0</span></div>
+        <div class="cps-text">초당 수익: +<span id="cpsDisplay">0</span> G</div>
+        <div style="color: #9b59b6; font-size: 14px; font-weight: bold;">🛡️ 방지권: <span id="scrollDisplay">0</span> | 🗿 토템: <span id="totemDisplay">0</span></div>
+    </div>
+
+    <div id="gameArea">
+        <div id="eggInfo">알을 장착해주세요!</div>
+        <div id="eggIncome"></div>
+        <div id="eggContainer">
+            <img id="eggImage" src="" alt="알">
+        </div>
+
+        <div id="inventoryArea">
+            <div class="inv-header">
+                <div class="inv-title">🥚 내 인벤토리 <span id="invCount" style="font-size:13px; font-weight:normal;">(0/30)</span></div>
+                <button id="btnExecuteSell" onclick="executeSelectedSell()">선택된 알 판매</button>
+            </div>
+            <div id="inventoryGrid"></div>
+        </div>
+
+        <div style="display:flex; flex-wrap:wrap; justify-content:center; max-width:550px;">
+            <button class="btn btn-work" id="btnWork" onclick="earnMoney()">⛏️ 돈 벌기 (클릭)</button>
+            <button class="btn btn-enhance" id="btnEnhance" onclick="enhanceEgg()">✨ 강화하기</button>
+            <button class="btn btn-open-shop" id="btnShop" onclick="openShop()">🛒 상점</button>
+            <button class="btn btn-sell-mode" id="btnSellMode" onclick="toggleSellMode()">💰 선택 판매 모드: OFF</button>
+            <button class="btn btn-rank" onclick="openRanking()">🏆 랭킹</button>
+        </div>
+
+        <!-- 강화 보조 아이템 선택 옵션 -->
+        <div style="margin-top: 4px; display: flex; gap: 15px; font-size: 13px; font-weight: bold;">
+            <label style="cursor: pointer; color: #9b59b6;">
+                <input type="checkbox" id="chkUseScroll" style="width: 14px; height: 14px; vertical-align: middle; cursor: pointer;"> 
+                🛡️ 파괴 방지 (보유: <span id="scrollCheckDisplay">0</span>개)
+            </label>
+            <label style="cursor: pointer; color: #f1c40f;">
+                <input type="checkbox" id="chkUseTotem" style="width: 14px; height: 14px; vertical-align: middle; cursor: pointer;"> 
+                🗿 행운의 토템 +10% (보유: <span id="totemCheckDisplay">0</span>개)
+            </label>
+        </div>
+
+        <div id="logText"></div>
+    </div>
+
+    <!-- 범용 메시지 모달 -->
+    <div id="msgModal" class="overlay-modal" style="z-index: 150;">
+        <div class="msg-box" id="msgBoxBorder">
+            <div id="msgTitle">알림</div>
+            <div id="msgDesc">내용</div>
+            <button class="btn-ok" onclick="closeMsgModal()">확인</button>
+        </div>
+    </div>
+
+    <!-- 판매 경고 모달 -->
+    <div id="sellWarningModal" class="overlay-modal" style="z-index: 160;">
+        <div class="msg-box" style="border-color: #e74c3c;">
+            <div id="sellWarningTitle" style="font-size: 22px; font-weight: bold; color: #e74c3c; margin-bottom: 8px;">⚠️ 판매 경고 ⚠️</div>
+            <div id="sellWarningDesc">선택한 알 중 <b style="color:#a55eea;">[이터널]</b> 등급 이상의 귀중한 알이 포함되어 있습니다!<br>정말 판매하시겠습니까?</div>
+            
+            <label class="checkbox-container">
+                <input type="checkbox" id="chkIgnoreWarning"> 이 경고창을 앞으로 보이지 않음
+            </label>
+
+            <div>
+                <button class="btn-ok" style="background:#e74c3c;" onclick="confirmHighGradeSell()">판매 진행</button>
+                <button class="btn-ok btn-cancel" onclick="closeSellWarning()">판매 취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 상점 모달 -->
+    <div id="shopModal" class="overlay-modal">
+        <div class="shop-box">
+            <button class="close-btn" onclick="closeShop()">X</button>
+            <div class="shop-title">EGG SHOP</div>
+            
+            <!-- 1줄: 일반 상자 -->
+            <div class="rates">Normal(68.9%) | Secret(30%) | Eternal(1%) | ✨ Divine(0.1%) <br>🎁 일반 상자: 10% 확률로 💎다이아 1개 획득</div>
+            <div class="shop-buttons">
+                <button class="btn-buy" onclick="buyBox(1, 1000)">일반 상자 1회<br><span class="gold-icon">G</span> 1,000</button>
+                <button class="btn-buy" onclick="buyBox(10, 9000)">일반 상자 10회<br><span class="gold-icon">G</span> 9,000</button>
+            </div>
+
+            <!-- 2줄: VIP 상자 -->
+            <div class="rates rates-vip">👑 VIP 상자 (Secret 89% | Eternal 10% | Divine 1%)<br>💎 20% 확률로 다이아 1개 | 1% 확률로 다이아 10개 | 🌟 0.1% 대박! 다이아 100개</div>
+            <div class="shop-buttons">
+                <button class="btn-buy btn-vip" onclick="buyVipBox(1, 100000)">VIP 상자 1회<br><span class="gold-icon">G</span> 100,000</button>
+                <button class="btn-buy btn-vip" onclick="buyVipBox(10, 900000)">VIP 상자 10회<br><span class="gold-icon">G</span> 900,000</button>
+            </div>
+
+            <!-- 3줄: 강화 아이템 -->
+            <div class="rates" style="background: rgba(243, 156, 18, 0.15); color: #d35400;">✨ 강화 보조 아이템</div>
+            <div class="shop-buttons">
+                <button class="btn-buy btn-item" onclick="buyTotem(50000)">🗿 행운의 토템<br><span class="gold-icon">G</span> 50,000</button>
+                <button class="btn-buy btn-item" onclick="buyProtectScroll(200000)">🛡️ 파괴 방지권<br><span class="gold-icon">G</span> 200,000</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="gachaModal" class="overlay-modal" style="z-index: 200;">
+        <div class="gacha-box">
+            <div id="gachaBoxIcon">🎁</div>
+            <img id="gachaResultImg" src="">
+            <div id="gachaText">상자를 여는 중...</div>
+            <button class="btn-ok" id="gachaOkBtn" style="display: none;" onclick="closeGachaModal()">확인</button>
+        </div>
+    </div>
+
+    <div id="rankModal" class="overlay-modal" style="z-index: 150;">
+        <div class="msg-box" style="width: 80%; max-width: 380px; border-color: #f1c40f;">
+            <button class="close-btn" style="background:#f1c40f; box-shadow: 0 4px 0 #d4ac0d;" onclick="closeRanking()">X</button>
+            <div id="msgTitle" style="color: #f1c40f;">🏆 명예의 전당 🏆</div>
+            <div id="msgDesc" style="text-align: left; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 8px; font-size: 15px;">
+                <p>🥇 1위: ??? (데이터베이스 연동 필요)</p>
+                <p>🥈 2위: ???</p>
+                <p>🥉 3위: ???</p>
+                <hr style="border-color: #34495e;">
+                <p style="color: #bdc3c7; font-size: 13px; text-align: center;">실시간 랭킹을 보려면 서버 연동이 필요합니다!</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let money = 10000;
+        let diamonds = 0; // 다이아 재화 추가
+        let inventory = [];
+        const MAX_INVENTORY = 30;
+        let equippedIndex = -1;
+        let isAnimating = false;
+        
+        let isSellMode = false;
+        let selectedForSell = new Set();
+        let skipHighGradeWarning = false;
+        let protectScrolls = 0;
+        let luckyTotems = 0; 
+
+        const eggDB = {
+            normal: { name: "Normal Egg", color: "white", src: "images/base_egg.png", gradeValue: 1, baseCps: 5 },
+            secret: { name: "Secret Egg", color: "black", src: "images/secret_egg.png", gradeValue: 2, baseCps: 50 },
+            eternal: { name: "Eternal Egg", color: "#a55eea", src: "images/eternal_egg.png", gradeValue: 3, baseCps: 500 },
+            divine: { name: "Divine Egg", color: "#ffd700", src: "images/divine_egg.png", gradeValue: 4, baseCps: 5000 }
+        };
+
+        function saveData() {
+            const gameData = {
+                money: money,
+                diamonds: diamonds,
+                inventory: inventory,
+                equippedIndex: equippedIndex,
+                skipWarning: skipHighGradeWarning,
+                protectScrolls: protectScrolls,
+                luckyTotems: luckyTotems
+            };
+            localStorage.setItem('hatchingLegendsSaveV8', JSON.stringify(gameData));
+        }
+
+        function loadData() {
+            const savedData = localStorage.getItem('hatchingLegendsSaveV8');
+            if (savedData) {
+                const gameData = JSON.parse(savedData);
+                money = gameData.money;
+                diamonds = gameData.diamonds || 0;
+                inventory = gameData.inventory;
+                equippedIndex = gameData.equippedIndex;
+                skipHighGradeWarning = gameData.skipWarning || false;
+                protectScrolls = gameData.protectScrolls || 0;
+                luckyTotems = gameData.luckyTotems || 0;
+            }
+        }
+
+        const moneyDisplay = document.getElementById('moneyDisplay');
+        const diamondDisplay = document.getElementById('diamondDisplay');
+        const cpsDisplay = document.getElementById('cpsDisplay');
+        const eggImage = document.getElementById('eggImage');
+        const eggInfo = document.getElementById('eggInfo');
+        const eggIncome = document.getElementById('eggIncome');
+        const logText = document.getElementById('logText');
+        const inventoryGrid = document.getElementById('inventoryGrid');
+        
+        const btnWork = document.getElementById('btnWork');
+        const btnEnhance = document.getElementById('btnEnhance');
+        const btnShop = document.getElementById('btnShop');
+        const btnSellMode = document.getElementById('btnSellMode');
+        const btnExecuteSell = document.getElementById('btnExecuteSell');
+
+        function calculateCPS(egg) { return Math.floor(egg.baseCps * Math.pow(1.5, egg.level)); }
+        
+        function getTextShadow(color) {
+            return (color === "black") ? "text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;" : "text-shadow: 2px 2px 4px black;";
+        }
+
+        function showMsgModal(title, desc, borderColor) {
+            document.getElementById('msgModal').style.display = 'flex';
+            document.getElementById('msgTitle').innerText = title;
+            document.getElementById('msgTitle').style.color = borderColor;
+            document.getElementById('msgDesc').innerHTML = desc;
+            document.getElementById('msgBoxBorder').style.borderColor = borderColor;
+        }
+
+        function closeMsgModal() { document.getElementById('msgModal').style.display = 'none'; }
+        function log(msg) { logText.innerText = msg; }
+
+        function toggleButtons(disabled) {
+            isAnimating = disabled;
+            btnWork.disabled = disabled;
+            btnEnhance.disabled = disabled;
+            btnShop.disabled = disabled;
+            btnSellMode.disabled = disabled;
+        }
+
+        function updateUI() {
+            eggImage.className = "";
+            moneyDisplay.innerText = money.toLocaleString();
+            diamondDisplay.innerText = diamonds.toLocaleString();
+            document.getElementById('invCount').innerText = `(${inventory.length}/${MAX_INVENTORY})`;
+            document.getElementById('scrollDisplay').innerText = protectScrolls;
+            document.getElementById('totemDisplay').innerText = luckyTotems;
+            
+            const scrollCheckDisplay = document.getElementById('scrollCheckDisplay');
+            if(scrollCheckDisplay) scrollCheckDisplay.innerText = protectScrolls;
+            
+            const totemCheckDisplay = document.getElementById('totemCheckDisplay');
+            if(totemCheckDisplay) totemCheckDisplay.innerText = luckyTotems;
+            
+            if (equippedIndex >= 0 && inventory[equippedIndex]) {
+                const currentEgg = inventory[equippedIndex];
+                eggImage.style.display = "block";
+                eggImage.src = currentEgg.src;
+                
+                const textShadow = getTextShadow(currentEgg.color);
+                eggInfo.innerHTML = `<span style="color:${currentEgg.color}; ${textShadow}">[+${currentEgg.level}] ${currentEgg.name}</span>`;
+                
+                let cps = calculateCPS(currentEgg);
+                eggIncome.innerText = `현재 수익: 초당 +${cps.toLocaleString()} G`;
+                cpsDisplay.innerText = cps.toLocaleString();
+                
+                // 크기 및 아라 효과 (레벨이 올라도 최대 배율을 제한하여 초당 돈을 안 가리도록 방지)
+                let scale = Math.min(1.4, 1 + (currentEgg.level * 0.03));
+                let auraColor = currentEgg.color === "black" ? "rgba(255,255,255,0.7)" : currentEgg.color;
+                let glow = Math.min(25, currentEgg.level * 3); 
+                let hue = currentEgg.level * 10; 
+                
+                eggImage.style.setProperty('--base-scale', scale);
+                eggImage.style.setProperty('--aura-color', auraColor);
+                eggImage.style.transform = `scale(${scale})`;
+                eggImage.style.filter = `drop-shadow(0px 0px ${glow}px ${auraColor}) hue-rotate(${hue}deg)`;
+
+                let successRate = Math.max(10, 90 - (currentEgg.level * 5));
+                const useTotem = document.getElementById('chkUseTotem').checked;
+                if (useTotem && luckyTotems > 0) {
+                    successRate = Math.min(100, Math.round(successRate * 1.1)); // 현재 확률의 10% 증가
+                }
+                btnEnhance.innerText = `✨ 강화하기 (성공률: ${successRate}%)`;
+            } else {
+                eggImage.style.display = "none";
+                eggInfo.innerHTML = `<span style="color:white; text-shadow: 2px 2px 4px black;">알을 장착해주세요!</span>`;
+                eggIncome.innerText = "";
+                cpsDisplay.innerText = "0";
+                btnEnhance.innerText = `✨ 강화하기`;
+            }
+
+            inventoryGrid.innerHTML = "";
+            for (let i = 0; i < MAX_INVENTORY; i++) {
+                const slot = document.createElement('div');
+                
+                if (i < inventory.length) {
+                    const egg = inventory[i];
+                    let classes = ['inv-slot'];
+                    if (i === equippedIndex) classes.push('equipped');
+                    if (isSellMode && selectedForSell.has(i)) classes.push('selected-sell');
+                    slot.className = classes.join(' ');
+
+                    const textShadow = getTextShadow(egg.color);
+                    slot.innerHTML = `
+                        <img src="${egg.src}" class="inv-egg-img">
+                        <div class="inv-lvl" style="color:${egg.color}; ${textShadow}">+${egg.level}</div>
+                    `;
+                    slot.onclick = () => handleSlotClick(i);
+                } else {
+                    slot.className = "inv-slot empty";
+                }
+                inventoryGrid.appendChild(slot);
+            }
+            
+            btnSellMode.innerText = isSellMode ? "💰 선택 판매 모드: ON" : "💰 선택 판매 모드: OFF";
+            btnSellMode.style.background = isSellMode ? "linear-gradient(to bottom, #e74c3c, #c0392b)" : "";
+            btnSellMode.style.boxShadow = isSellMode ? "0 5px 0 #7b241c" : "";
+            
+            btnExecuteSell.style.display = (isSellMode && selectedForSell.size > 0) ? "block" : "none";
+            btnExecuteSell.innerText = `선택된 ${selectedForSell.size}개 판매`;
+        }
+
+        function handleSlotClick(index) {
+            if(isAnimating) return;
+            
+            if (isSellMode) {
+                if (selectedForSell.has(index)) selectedForSell.delete(index);
+                else selectedForSell.add(index);
+                updateUI();
+            } else {
+                equippedIndex = index;
+                log(`${inventory[index].name} 장착 완료!`);
+                updateUI();
+            }
+        }
+
+        function earnMoney() {
+            if(isAnimating) return;
+            money += 500;
+            updateUI();
+        }
+
+        function openShop() { if(!isAnimating) document.getElementById('shopModal').style.display = 'flex'; }
+        function closeShop() { document.getElementById('shopModal').style.display = 'none'; }
+        function openRanking() { if(!isAnimating) document.getElementById('rankModal').style.display = 'flex'; }
+        function closeRanking() { document.getElementById('rankModal').style.display = 'none'; }
+
+        function toggleSellMode() {
+            if(isAnimating) return;
+            isSellMode = !isSellMode;
+            selectedForSell.clear();
+            updateUI();
+        }
+
+        function executeSelectedSell() {
+            if(selectedForSell.size === 0) return;
+
+            let hasHighGrade = false;
+            for (let idx of selectedForSell) {
+                if (inventory[idx].gradeValue >= 3) {
+                    hasHighGrade = true; break;
+                }
+            }
+
+            if (hasHighGrade && !skipHighGradeWarning) {
+                document.getElementById('sellWarningModal').style.display = 'flex';
+                document.getElementById('chkIgnoreWarning').checked = false;
+            } else {
+                confirmHighGradeSell();
+            }
+        }
+
+        function closeSellWarning() {
+            document.getElementById('sellWarningModal').style.display = 'none';
+        }
+
+        function confirmHighGradeSell() {
+            const chkBox = document.getElementById('chkIgnoreWarning');
+            if(chkBox.checked) {
+                skipHighGradeWarning = true;
+            }
+            closeSellWarning();
+
+            let totalEarnings = 0;
+            let equippedEgg = equippedIndex >= 0 ? inventory[equippedIndex] : null;
+            let newInventory = [];
+
+            for(let i=0; i<inventory.length; i++) {
+                if(selectedForSell.has(i)) {
+                    let egg = inventory[i];
+                    totalEarnings += Math.floor((egg.gradeValue * 1500) * Math.pow(1.5, egg.level));
+                } else {
+                    newInventory.push(inventory[i]);
+                }
+            }
+
+            money += totalEarnings;
+            inventory = newInventory;
+            equippedIndex = equippedEgg ? inventory.indexOf(equippedEgg) : -1;
+            
+            log(`총 ${selectedForSell.size}개의 알을 판매하여 ${totalEarnings.toLocaleString()} G 획득!`);
+            
+            selectedForSell.clear();
+            isSellMode = false;
+            
+            updateUI();
+            saveData();
+        }
+
+        function buyBox(times, cost) {
+            if (money < cost) { showMsgModal("알림", "G(골드)가 부족합니다!", "#e74c3c"); return; }
+            if (inventory.length + times > MAX_INVENTORY) { showMsgModal("알림", "인벤토리 공간이 부족합니다!", "#e74c3c"); return; }
+
+            money -= cost;
+            let bestEggResult = null;
+            let highestGrade = 0;
+            let diamondGained = 0;
+
+            for(let i=0; i<times; i++) {
+                let rand = Math.random() * 100;
+                let resultKey = (rand < 0.1) ? "divine" : 
+                                (rand < 1.1) ? "eternal" : 
+                                (rand < 31.1) ? "secret" : "normal";
+
+                if(eggDB[resultKey].gradeValue > highestGrade) {
+                    highestGrade = eggDB[resultKey].gradeValue;
+                    bestEggResult = resultKey;
+                }
+
+                // 일반 상자 다이아 획득 확률 (10% 확률로 1개)
+                if (Math.random() * 100 < 10) {
+                    diamondGained += 1;
+                }
+            }
+
+            if (diamondGained > 0) {
+                diamonds += diamondGained;
+            }
+
+            const getEgg = eggDB[bestEggResult];
+            inventory.push({
+                id: bestEggResult,
+                name: getEgg.name,
+                color: getEgg.color,
+                src: getEgg.src,
+                gradeValue: getEgg.gradeValue,
+                baseCps: getEgg.baseCps,
+                level: 0
+            });
+
+            if(!isSellMode) equippedIndex = inventory.length - 1;
+            closeShop();
+            startGachaAnimation(getEgg, times, diamondGained);
+        }
+
+        function buyVipBox(times, cost) {
+            if (money < cost) { showMsgModal("알림", "G(골드)가 부족합니다!", "#e74c3c"); return; }
+            if (inventory.length + times > MAX_INVENTORY) { showMsgModal("알림", "인벤토리 공간이 부족합니다!", "#e74c3c"); return; }
+
+            money -= cost;
+            let bestEggResult = null;
+            let highestGrade = 0;
+            let diamondGained = 0;
+            let gotJackpot100 = false;
+
+            for(let i=0; i<times; i++) {
+                let rand = Math.random() * 100;
+                let resultKey = (rand < 1) ? "divine" : (rand < 11) ? "eternal" : "secret";
+                
+                if(eggDB[resultKey].gradeValue > highestGrade) {
+                    highestGrade = eggDB[resultKey].gradeValue;
+                    bestEggResult = resultKey;
+                }
+
+                // VIP 상자 다이아 확률 판정
+                let dRand = Math.random() * 100;
+                if (dRand < 0.1) {
+                    diamondGained += 100;
+                    gotJackpot100 = true;
+                } else if (dRand < 1.1) { // 0.1% ~ 1.1% (총 1%)
+                    diamondGained += 10;
+                } else if (dRand < 21.1) { // 1.1% ~ 21.1% (총 20%)
+                    diamondGained += 1;
+                }
+            }
+
+            if (diamondGained > 0) {
+                diamonds += diamondGained;
+            }
+
+            const getEgg = eggDB[bestEggResult];
+            inventory.push({
+                id: bestEggResult,
+                name: getEgg.name,
+                color: getEgg.color,
+                src: getEgg.src,
+                gradeValue: getEgg.gradeValue,
+                baseCps: getEgg.baseCps,
+                level: 0
+            });
+
+            if(!isSellMode) equippedIndex = inventory.length - 1;
+            closeShop();
+            startGachaAnimation(getEgg, times, diamondGained, gotJackpot100);
+        }
+
+        function buyProtectScroll(cost) {
+            if (money < cost) { showMsgModal("알림", "G(골드)가 부족합니다!", "#e74c3c"); return; }
+            money -= cost;
+            protectScrolls++;
+            log(`🛡️ 파괴 방지권을 구매했습니다! (보유: ${protectScrolls}개)`);
+            updateUI();
+            saveData();
+        }
+
+        function buyTotem(cost) {
+            if (money < cost) { showMsgModal("알림", "G(골드)가 부족합니다!", "#e74c3c"); return; }
+            money -= cost;
+            luckyTotems++;
+            log(`🗿 행운의 토템을 구매했습니다! (보유: ${luckyTotems}개)`);
+            updateUI();
+            saveData();
+        }
+
+        function startGachaAnimation(egg, times, diamondGained = 0, jackpot = false) {
+            toggleButtons(true); 
+            
+            const gachaModal = document.getElementById('gachaModal');
+            const boxIcon = document.getElementById('gachaBoxIcon');
+            const resultImg = document.getElementById('gachaResultImg');
+            const text = document.getElementById('gachaText');
+            const okBtn = document.getElementById('gachaOkBtn');
+
+            gachaModal.style.display = 'flex';
+            boxIcon.style.display = 'block';
+            resultImg.style.display = 'none';
+            resultImg.className = ''; 
+            okBtn.style.display = 'none';
+            text.innerText = "상자를 여는 중...";
+            text.style.color = "white";
+
+            boxIcon.classList.add("anim-shake");
+
+            setTimeout(() => {
+                boxIcon.classList.remove("anim-shake");
+                boxIcon.style.display = 'none';
+                
+                resultImg.src = egg.src;
+                resultImg.style.display = 'block';
+                resultImg.classList.add('anim-pop'); 
+                
+                const textShadow = getTextShadow(egg.color);
+                let descText = `${egg.name} 획득!`;
+                if (diamondGained > 0) {
+                    descText += ` <br><span style="color:#00cec9; font-size:18px;">💎 다이아 +${diamondGained}개 획득!</span>`;
+                }
+                text.innerHTML = `<span style="color:${egg.color}; ${textShadow}">${descText}</span>`;
+                
+                if(times === 10) log(`10회 뽑기 완료! 최고 등급: ${egg.name} 획득!`);
+                else log(`${egg.name} 획득!`);
+
+                setTimeout(() => { 
+                    okBtn.style.display = 'block'; 
+                    if (jackpot) {
+                        showMsgModal("🎉 축하합니다! 대박 당첨! 🎉", `<b style="color:#ffd700; font-size:20px;">0.1% 확률의 기적!</b><br>다이아 <b style="color:#00cec9; font-size:24px;">100개</b>를 획득하셨습니다!`, "#ffd700");
+                    }
+                }, 800);
+            }, 1500);
+        }
+
+        function closeGachaModal() {
+            document.getElementById('gachaModal').style.display = 'none';
+            toggleButtons(false); 
+            updateUI();
+            saveData();
+        }
+
+        function enhanceEgg() {
+            if (isAnimating) return;
+            if (equippedIndex < 0 || !inventory[equippedIndex]) {
+                showMsgModal("알림", "강화할 알을 장착해주세요!", "#f39c12"); return;
+            }
+
+            const currentEgg = inventory[equippedIndex];
+            const useScroll = document.getElementById('chkUseScroll').checked;
+            const useTotem = document.getElementById('chkUseTotem').checked;
+
+            if (useScroll && protectScrolls <= 0) {
+                showMsgModal("알림", "보유중인 파괴 방지권이 부족합니다!", "#e74c3c");
+                return;
+            }
+            if (useTotem && luckyTotems <= 0) {
+                showMsgModal("알림", "보유중인 행운의 토템이 부족합니다!", "#e74c3c");
+                return;
+            }
+
+            let successRate = Math.max(10, 90 - (currentEgg.level * 5)); 
+            if (useTotem) {
+                successRate = Math.min(100, Math.round(successRate * 1.1));
+                luckyTotems--;
+                if(luckyTotems === 0) {
+                    document.getElementById('chkUseTotem').checked = false;
+                }
+            }
+
+            let rand = Math.random() * 100;
+
+            toggleButtons(true);
+            log(`강화 시도 중... (성공률: ${successRate}%)`);
+            eggImage.classList.add("anim-heartbeat");
+
+            setTimeout(() => {
+                eggImage.classList.remove("anim-heartbeat");
+
+                if (rand <= successRate) {
+                    currentEgg.level++;
+                    eggImage.classList.add("anim-success");
+                    
+                    setTimeout(() => {
+                        showMsgModal("✨ 강화 성공! ✨", `<span style="color:${currentEgg.color}; font-weight:bold;">${currentEgg.name}</span>이(가) <br><b style="color:#2ecc71; font-size:22px;">+${currentEgg.level}</b> 단계로 강화되었습니다!`, "#2ecc71");
+                        log(`강화 성공! (+${currentEgg.level})`);
+                        toggleButtons(false);
+                        updateUI();
+                    }, 1000); 
+
+                } else {
+                    eggImage.classList.add("anim-break");
+                    
+                    setTimeout(() => {
+                        if (useScroll && protectScrolls > 0) {
+                            protectScrolls--;
+                            if(protectScrolls === 0) {
+                                document.getElementById('chkUseScroll').checked = false;
+                            }
+                            showMsgModal("🛡️ 파괴 방어!", `<span style="color:${currentEgg.color}; font-weight:bold;">${currentEgg.name}</span>의 파괴를 막았습니다!<br>(남은 방지권: ${protectScrolls}개)`, "#9b59b6");
+                            log(`파괴 방지권 사용! (${currentEgg.name} 보호됨)`);
+                            eggImage.classList.remove("anim-break");
+                        } else {
+                            showMsgModal("💀 강화 실패 💀", `<span style="color:${currentEgg.color}; font-weight:bold;">${currentEgg.name}</span>이(가) <br>산산조각 나버렸습니다...`, "#e74c3c");
+                            log(`${currentEgg.name} 파괴됨.`);
+                            inventory.splice(equippedIndex, 1);
+                            equippedIndex = -1;
+                        }
+                        toggleButtons(false);
+                        updateUI();
+                    }, 800); 
+                }
+            }, 700); 
+        }
+
+        setInterval(() => {
+            if (equippedIndex >= 0 && inventory[equippedIndex]) {
+                const cps = calculateCPS(inventory[equippedIndex]);
+                money += cps;
+                if(!isAnimating) updateUI(); 
+                else moneyDisplay.innerText = money.toLocaleString(); 
+            }
+            saveData();
+        }, 1000);
+
+        loadData();
+        updateUI();
+    </script>
+</body>
+</html>
