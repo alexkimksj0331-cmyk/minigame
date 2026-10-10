@@ -76,6 +76,11 @@
         .btn-enhance:active:not(:disabled) { box-shadow: 0 0px 0 #78281f; }
         .btn-open-shop { background: linear-gradient(to bottom, #e74c3c, #c0392b); box-shadow: 0 6px 0 #7b241c; }
         .btn-open-shop:active:not(:disabled) { box-shadow: 0 0px 0 #7b241c; }
+        
+        .btn-sell { background: linear-gradient(to bottom, #9b59b6, #8e44ad); box-shadow: 0 6px 0 #5b2c6f; }
+        .btn-sell:active:not(:disabled) { box-shadow: 0 0px 0 #5b2c6f; }
+        .btn-rank { background: linear-gradient(to bottom, #34495e, #2c3e50); box-shadow: 0 6px 0 #1a252f; }
+        .btn-rank:active:not(:disabled) { box-shadow: 0 0px 0 #1a252f; }
 
         #inventoryArea {
             width: 90%; max-width: 600px;
@@ -150,9 +155,6 @@
         #gachaResultImg { max-width: 150px; max-height: 150px; display: none; margin-bottom: 20px; clip-path: circle(45% at 50% 50%); }
         #gachaText { font-size: 28px; font-weight: bold; margin-bottom: 20px; text-shadow: 2px 2px 4px black; }
 
-        /* ----- 변경된 애니메이션 정의 ----- */
-        
-        /* 1+2번 결합: 심장 박동 + 마력 집중 애니메이션 (강화 시도) */
         @keyframes heartbeat-glow {
             0% { transform: scale(var(--base-scale)); filter: brightness(1) drop-shadow(0 0 10px var(--aura-color)); }
             25% { transform: scale(calc(var(--base-scale) * 1.15)); filter: brightness(1.5) drop-shadow(0 0 30px var(--aura-color)); }
@@ -161,14 +163,12 @@
             100% { transform: scale(var(--base-scale)); filter: brightness(1) drop-shadow(0 0 10px var(--aura-color)); }
         }
 
-        /* 강화 성공 빛남 */
         @keyframes successGlow {
             0% { filter: brightness(1) drop-shadow(0 0 10px white); transform: scale(var(--base-scale)); }
             50% { filter: brightness(2) drop-shadow(0 0 50px yellow); transform: scale(calc(var(--base-scale) * 1.3)); }
             100% { filter: brightness(1) drop-shadow(0 0 10px white); transform: scale(var(--base-scale)); }
         }
 
-        /* 강화 실패 파괴 */
         @keyframes breakEgg {
             0% { transform: scale(var(--base-scale)); filter: grayscale(0%); opacity: 1; }
             40% { transform: scale(calc(var(--base-scale) * 1.2)) rotate(15deg); filter: grayscale(50%) sepia(1) hue-rotate(-50deg) saturate(5); opacity: 0.9; }
@@ -176,7 +176,6 @@
             100% { transform: scale(0); filter: grayscale(100%); opacity: 0; }
         }
 
-        /* 상자 흔들기 (가챠용) */
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
             25% { transform: translateX(-5px) rotate(-5deg); }
@@ -184,14 +183,12 @@
             75% { transform: translateX(-5px) rotate(-5deg); }
         }
 
-        /* 알 튀어나오기 (가챠용) */
         @keyframes popOut {
             0% { transform: scale(0) translateY(50px); opacity: 0; }
             60% { transform: scale(1.3) translateY(-20px); opacity: 1; filter: drop-shadow(0 0 20px white); }
             100% { transform: scale(1) translateY(0); opacity: 1; }
         }
 
-        /* 애니메이션 클래스 */
         .anim-heartbeat { animation: heartbeat-glow 1.25s ease-in-out infinite; }
         .anim-success { animation: successGlow 1s forwards; }
         .anim-break { animation: breakEgg 0.8s forwards; }
@@ -219,9 +216,12 @@
         </div>
 
         <div>
+            <!-- 수익 너프 (1000 -> 500) 직관적으로 표시 -->
             <button class="btn btn-work" id="btnWork" onclick="earnMoney()">⛏️ 돈 벌기 (클릭)</button>
             <button class="btn btn-enhance" id="btnEnhance" onclick="enhanceEgg()">✨ 강화하기</button>
             <button class="btn btn-open-shop" id="btnShop" onclick="openShop()">🛒 EGG SHOP</button>
+            <button class="btn btn-sell" id="btnSell" onclick="sellEgg()">💰 팔기</button>
+            <button class="btn btn-rank" onclick="openRanking()">🏆 랭킹</button>
         </div>
         <div id="logText"></div>
     </div>
@@ -230,7 +230,8 @@
         <div class="shop-box">
             <button class="close-btn" onclick="closeShop()">X</button>
             <div class="shop-title">EGG SHOP</div>
-            <div class="rates">Normal(64.9%) | Secret(30%) | Eternal(5%) | ✨ Divine(0.1%)</div>
+            <!-- 이터널 확률 1%로 수정된 텍스트 -->
+            <div class="rates">Normal(68.9%) | Secret(30%) | Eternal(1%) | ✨ Divine(0.1%)</div>
             <div class="shop-buttons">
                 <button class="btn-buy" onclick="buyBox(1, 1000)">BUY 1<br><span class="gold-icon">G</span> 1,000</button>
                 <button class="btn-buy" onclick="buyBox(10, 9000)">BUY 10 (Best 1)<br><span class="gold-icon">G</span> 9,000</button>
@@ -255,32 +256,45 @@
         </div>
     </div>
 
+    <div id="rankModal" class="overlay-modal" style="z-index: 150;">
+        <div class="msg-box" style="width: 80%; max-width: 400px; border-color: #f1c40f;">
+            <button class="close-btn" style="background:#f1c40f; box-shadow: 0 6px 0 #d4ac0d;" onclick="closeRanking()">X</button>
+            <div id="msgTitle" style="color: #f1c40f;">🏆 명예의 전당 🏆</div>
+            <div id="msgDesc" style="text-align: left; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px; font-size: 16px;">
+                <p>🥇 1위: ??? (데이터베이스 연동 필요)</p>
+                <p>🥈 2위: ???</p>
+                <p>🥉 3위: ???</p>
+                <hr style="border-color: #34495e;">
+                <p style="color: #bdc3c7; font-size: 14px; text-align: center;">실시간 랭킹을 보려면 서버 연동이 필요합니다!</p>
+            </div>
+        </div>
+    </div>
+
     <script>
         let money = 10000;
         let inventory = [];
         const MAX_INVENTORY = 10;
         let equippedIndex = -1;
         let isAnimating = false;
-        // --- 게임 데이터 저장하기 ---
-function saveData() {
-    const gameData = {
-        money: money,
-        inventory: inventory,
-        equippedIndex: equippedIndex
-    };
-    localStorage.setItem('hatchingLegendsSave', JSON.stringify(gameData));
-}
+        
+        function saveData() {
+            const gameData = {
+                money: money,
+                inventory: inventory,
+                equippedIndex: equippedIndex
+            };
+            localStorage.setItem('hatchingLegendsSave', JSON.stringify(gameData));
+        }
 
-// --- 게임 데이터 불러오기 ---
-function loadData() {
-    const savedData = localStorage.getItem('hatchingLegendsSave');
-    if (savedData) {
-        const gameData = JSON.parse(savedData);
-        money = gameData.money;
-        inventory = gameData.inventory;
-        equippedIndex = gameData.equippedIndex;
-    }
-}
+        function loadData() {
+            const savedData = localStorage.getItem('hatchingLegendsSave');
+            if (savedData) {
+                const gameData = JSON.parse(savedData);
+                money = gameData.money;
+                inventory = gameData.inventory;
+                equippedIndex = gameData.equippedIndex;
+            }
+        }
 
         const moneyDisplay = document.getElementById('moneyDisplay');
         const cpsDisplay = document.getElementById('cpsDisplay');
@@ -294,11 +308,12 @@ function loadData() {
         const btnEnhance = document.getElementById('btnEnhance');
         const btnShop = document.getElementById('btnShop');
 
+        // [너프 반영] 등급별 초당 골드 수익(baseCps)을 모두 절반으로 감소
         const eggDB = {
-            normal: { name: "Normal Egg", color: "white", src: "images/base_egg.png", gradeValue: 1, baseCps: 10 },
-            secret: { name: "Secret Egg", color: "black", src: "images/secret_egg.png", gradeValue: 2, baseCps: 100 },
-            eternal: { name: "Eternal Egg", color: "#a55eea", src: "images/eternal_egg.png", gradeValue: 3, baseCps: 1000 },
-            divine: { name: "Divine Egg", color: "#ffd700", src: "images/divine_egg.png", gradeValue: 4, baseCps: 10000 }
+            normal: { name: "Normal Egg", color: "white", src: "images/base_egg.png", gradeValue: 1, baseCps: 5 },
+            secret: { name: "Secret Egg", color: "black", src: "images/secret_egg.png", gradeValue: 2, baseCps: 50 },
+            eternal: { name: "Eternal Egg", color: "#a55eea", src: "images/eternal_egg.png", gradeValue: 3, baseCps: 500 },
+            divine: { name: "Divine Egg", color: "#ffd700", src: "images/divine_egg.png", gradeValue: 4, baseCps: 5000 }
         };
 
         function calculateCPS(egg) {
@@ -329,6 +344,7 @@ function loadData() {
             btnWork.disabled = disabled;
             btnEnhance.disabled = disabled;
             btnShop.disabled = disabled;
+            document.getElementById('btnSell').disabled = disabled;
         }
 
         function updateUI() {
@@ -347,7 +363,6 @@ function loadData() {
                 eggIncome.innerText = `현재 수익: 초당 +${cps.toLocaleString()} G`;
                 cpsDisplay.innerText = cps.toLocaleString();
                 
-                // 베이스 크기와 아우라 색상을 CSS 변수로 설정하여 애니메이션과 연동
                 let scale = 1 + (currentEgg.level * 0.05);
                 let auraColor = currentEgg.color === "black" ? "rgba(255,255,255,0.7)" : currentEgg.color;
                 let glow = currentEgg.level * 4; 
@@ -396,7 +411,8 @@ function loadData() {
 
         function earnMoney() {
             if(isAnimating) return;
-            money += 1000;
+            // [너프 반영] 클릭당 수익 절반 (1000 -> 500)
+            money += 500;
             updateUI();
         }
 
@@ -408,6 +424,37 @@ function loadData() {
         }
         function closeShop() { document.getElementById('shopModal').style.display = 'none'; }
 
+        function openRanking() {
+            if(isAnimating) return;
+            document.getElementById('rankModal').style.display = 'flex';
+        }
+        function closeRanking() {
+            document.getElementById('rankModal').style.display = 'none';
+        }
+
+        function sellEgg() {
+            if (isAnimating) return;
+            if (equippedIndex < 0 || !inventory[equippedIndex]) {
+                showMsgModal("알림", "판매할 알을 장착해주세요!", "#f39c12"); return;
+            }
+
+            const currentEgg = inventory[equippedIndex];
+            
+            // [너프 반영] 기본 판매 가격을 절반으로 감소 (3000 -> 1500)
+            let sellPrice = Math.floor((currentEgg.gradeValue * 1500) * Math.pow(1.5, currentEgg.level));
+
+            if (confirm(`장착 중인 [${currentEgg.name} +${currentEgg.level}] 알을\n${sellPrice.toLocaleString()} G에 판매하시겠습니까?`)) {
+                money += sellPrice;
+                log(`${currentEgg.name} 판매 완료! (+${sellPrice.toLocaleString()} G)`);
+                
+                inventory.splice(equippedIndex, 1);
+                equippedIndex = -1;
+                
+                updateUI();
+                saveData(); 
+            }
+        }
+
         function buyBox(times, cost) {
             if (money < cost) { showMsgModal("알림", "G(골드)가 부족합니다!", "#e74c3c"); return; }
             if (inventory.length >= MAX_INVENTORY) { showMsgModal("알림", "인벤토리가 꽉 찼습니다!", "#e74c3c"); return; }
@@ -417,18 +464,17 @@ function loadData() {
             let highestGrade = 0;
 
             for(let i=0; i<times; i++) {
-    let rand = Math.random() * 100;
-    
-    // 확률 적용: Divine(0.1%), Eternal(5.0%), Secret(30.0%), Normal(64.9%)
-    let resultKey = (rand < 0.1) ? "divine" : 
-                    (rand < 5.1) ? "eternal" : 
-                    (rand < 35.1) ? "secret" : "normal";
+                let rand = Math.random() * 100;
+                // [확률 조정] 이터널 1% 반영
+                let resultKey = (rand < 0.1) ? "divine" : 
+                                (rand < 1.1) ? "eternal" : 
+                                (rand < 31.1) ? "secret" : "normal";
 
-    if(eggDB[resultKey].gradeValue > highestGrade) {
-        highestGrade = eggDB[resultKey].gradeValue;
-        bestEggResult = resultKey;
-    }
-}
+                if(eggDB[resultKey].gradeValue > highestGrade) {
+                    highestGrade = eggDB[resultKey].gradeValue;
+                    bestEggResult = resultKey;
+                }
+            }
 
             const getEgg = eggDB[bestEggResult];
             inventory.push({
@@ -505,7 +551,6 @@ function loadData() {
             toggleButtons(true);
             log(`강화 시도 중... (성공률: ${successRate}%)`);
             
-            // 흔들림 대신 심장 박동 + 마력 집중 애니메이션 적용
             eggImage.classList.add("anim-heartbeat");
 
             setTimeout(() => {
