@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>알 훔치기 미니게임</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #2c3e50;
+            color: white;
+            font-family: sans-serif;
+            flex-direction: column;
+        }
+        canvas {
+            border: 4px solid #34495e;
+            border-radius: 8px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+        #instructions {
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>🥚 알 훔치기 게임 (프로토타입)</h2>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="instructions">
+        이동: <b>W A S D</b> | 알 줍기: <b>E</b><br>
+        위험 지대(오른쪽)에서 알을 주워 안전 지대(왼쪽)로 가져오세요!
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 게임 설정값
+        const EGG_SPAWN_TIME = 300; // 300초 (테스트할 때는 이 숫자를 5 정도로 줄여보세요)
+        
+        // 키보드 입력 상태
+        const keys = { w: false, a: false, s: false, d: false, e: false };
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'w' || e.key === 'W') keys.w = true;
+            if (e.key === 'a' || e.key === 'A') keys.a = true;
+            if (e.key === 's' || e.key === 'S') keys.s = true;
+            if (e.key === 'd' || e.key === 'D') keys.d = true;
+            if (e.key === 'e' || e.key === 'E') keys.e = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'w' || e.key === 'W') keys.w = false;
+            if (e.key === 'a' || e.key === 'A') keys.a = false;
+            if (e.key === 's' || e.key === 'S') keys.s = false;
+            if (e.key === 'd' || e.key === 'D') keys.d = false;
+            if (e.key === 'e' || e.key === 'E') keys.e = false;
+        });
+
+        // 플레이어 상태
+        const player = {
+            x: 75, y: 300, size: 15, speed: 5, hasEgg: false, score: 0
+        };
+
+        // 알 상태
+        const egg = {
+            x: 600, y: 300, size: 10, active: true, timer: 0
+        };
+
+        // 게임 맵 영역 설정
+        const safeZoneWidth = 150;
+        const biome1Width = 325; // 중앙 숲 바이옴
+        // 나머지 우측은 biome2 (사막 바이옴)
+
+        let lastTime = performance.now();
+
+        function update(deltaTime) {
+            // 플레이어 이동 로직
+            if (keys.w && player.y - player.size > 0) player.y -= player.speed;
+            if (keys.s && player.y + player.size < canvas.height) player.y += player.speed;
+            if (keys.a && player.x - player.size > 0) player.x -= player.speed;
+            if (keys.d && player.x + player.size < canvas.width) player.x += player.speed;
+
+            // 알 줍기 로직 (E키 누름 + 알이 활성화 상태 + 플레이어가 알을 안 가지고 있음)
+            if (egg.active && keys.e && !player.hasEgg) {
+                // 플레이어와 알 사이의 거리 계산
+                const dx = player.x - egg.x;
+                const dy = player.y - egg.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // 거리가 가까우면 획득
+                if (distance < player.size + egg.size + 15) {
+                    player.hasEgg = true;
+                    egg.active = false;
+                    egg.timer = EGG_SPAWN_TIME;
+                    keys.e = false; // E키 연타 방지
+                }
+            }
+
+            // 안전 지대로 복귀 로직
+            if (player.hasEgg && player.x < safeZoneWidth) {
+                player.hasEgg = false;
+                player.score += 1;
+            }
+
+            // 알 스폰 타이머 로직
+            if (!egg.active) {
+                egg.timer -= deltaTime / 1000; // 초 단위로 감소
+                if (egg.timer <= 0) {
+                    egg.active = true;
+                    // 바이옴 1, 2 어딘가에 무작위로 알 생성
+                    egg.x = safeZoneWidth + 50 + Math.random() * (canvas.width - safeZoneWidth - 100);
+                    egg.y = 50 + Math.random() * (canvas.height - 100);
+                }
+            }
+        }
+
+        function draw() {
+            // 1. 맵 그리기
+            // 안전 지대 (육상 경기장 느낌의 트랙/잔디)
+            ctx.fillStyle = '#27ae60'; // 짙은 초록
+            ctx.fillRect(0, 0, safeZoneWidth, canvas.height);
+            
+            // 바이옴 1 (숲)
+            ctx.fillStyle = '#2ecc71'; // 밝은 초록
+            ctx.fillRect(safeZoneWidth, 0, biome1Width, canvas.height);
+            
+            // 바이옴 2 (사막/용암 등 위험지대 느낌)
+            ctx.fillStyle = '#e67e22'; // 주황/모래색
+            ctx.fillRect(safeZoneWidth + biome1Width, 0, canvas.width - (safeZoneWidth + biome1Width), canvas.height);
+
+            // 경계선 그리기
+            ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(safeZoneWidth, 0);
+            ctx.lineTo(safeZoneWidth, canvas.height);
+            ctx.moveTo(safeZoneWidth + biome1Width, 0);
+            ctx.lineTo(safeZoneWidth + biome1Width, canvas.height);
+            ctx.stroke();
+
+            // 텍스트 라벨
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.font = '20px sans-serif';
+            ctx.fillText('안전 지대', 30, 40);
+            ctx.fillText('바이옴 1', safeZoneWidth + 120, 40);
+            ctx.fillText('바이옴 2', safeZoneWidth + biome1Width + 120, 40);
+
+            // 2. 알 그리기
+            if (egg.active) {
+                ctx.fillStyle = '#f1c40f'; // 황금색
+                ctx.beginPath();
+                ctx.arc(egg.x, egg.y, egg.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#f39c12';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                // 상호작용 표시
+                ctx.fillStyle = 'white';
+                ctx.font = '12px sans-serif';
+                ctx.fillText('E 눌러 줍기', egg.x - 25, egg.y - 15);
+            }
+
+            // 3. 플레이어 그리기
+            ctx.fillStyle = '#3498db'; // 파란색 캐릭터
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#2980b9';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // 플레이어가 알을 들고 있다면 캐릭터 위에 작게 표시
+            if (player.hasEgg) {
+                ctx.fillStyle = '#f1c40f';
+                ctx.beginPath();
+                ctx.arc(player.x, player.y - player.size - 5, 6, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 4. UI(점수 및 타이머) 그리기
+            ctx.fillStyle = 'white';
+            ctx.font = '24px sans-serif';
+            ctx.fillText('가져온 알: ' + player.score, 20, canvas.height - 20);
+
+            if (!egg.active && egg.timer > 0) {
+                ctx.fillStyle = 'white';
+                ctx.font = '20px sans-serif';
+                ctx.fillText('다음 알 스폰까지: ' + Math.ceil(egg.timer) + '초', canvas.width / 2 - 100, canvas.height - 20);
+            }
+        }
+
+        function gameLoop(currentTime) {
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+
+            update(deltaTime);
+            draw();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 게임 시작
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
